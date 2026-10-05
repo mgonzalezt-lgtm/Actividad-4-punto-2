@@ -1,0 +1,79 @@
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Parámetros del sistema dados en el ejercicio
+delta = 0.02
+alpha = -1.0
+beta = 5.0
+gamma = 8.0
+omega = 0.5
+
+T = 2 * np.pi / omega  # Período de forzamiento
+
+
+# Definición del sistema de ecuaciones de primer orden
+def sistema(t, state):
+    x1, x2 = state
+    dx1_dt = x2
+    dx2_dt = -delta * x2 + alpha * x1 - beta * (x1 ** 3) + gamma * np.cos(omega * t)
+    return np.array([dx1_dt, dx2_dt])
+
+
+# Método Runge-Kutta de 4to orden (RK4)
+def rk4_step(t, state, h):
+    k1 = h * sistema(t, state)
+    k2 = h * sistema(t + h / 2, state + k1 / 2)
+    k3 = h * sistema(t + h / 2, state + k2 / 2)
+    k4 = h * sistema(t + h, state + k3)
+    return state + (k1 + 2 * k2 + 2 * k3 + k4) / 6
+
+
+# Configuración de la simulación
+h = T / 200  # Tamaño de paso temporal
+t_transitorio = 150 * T  # Tiempo para descartar el transitorio
+t_total = 350 * T  # Tiempo total de simulación por trayectoria
+
+# Generar múltiples condiciones iniciales cercanas para poblar el atractor (como en la Fig. 1-a)
+np.random.seed(42)
+num_trayectorias = 15
+condiciones_iniciales = []
+for _ in range(num_trayectorias):
+    x0 = 1.4 + np.random.uniform(-0.1, 0.1)
+    v0 = 0.0 + np.random.uniform(-0.1, 0.1)
+    condiciones_iniciales.append([x0, v0])
+
+plt.figure(figsize=(8, 8))
+
+# Colores para diferenciar las trayectorias en el mapa estroboscópico
+colores = plt.cm.jet(np.linspace(0, 1, num_trayectorias))
+
+for idx, state_ini in enumerate(condiciones_iniciales):
+    t = 0.0
+    state = np.array(state_ini, dtype=float)
+
+    stroboscopic_x = []
+    stroboscopic_v = []
+
+    next_strobo_t = t_transitorio
+
+    while t < t_total:
+        # Capturar el mapa estroboscópico a intervalos exactos de T tras el transitorio
+        if t >= t_transitorio and abs(t - next_strobo_t) < h / 2:
+            stroboscopic_x.append(state[0])
+            stroboscopic_v.append(state[1])
+            next_strobo_t += T
+
+        state = rk4_step(t, state, h)
+        t += h
+
+    # Graficar los puntos de esta trayectoria
+    plt.scatter(stroboscopic_x, stroboscopic_v, s=0.8, color=colores[idx], alpha=0.6)
+
+# Ajustar la visualización a los límites de la Fig. 1-(a)
+plt.xlim(1.05, 1.75)
+plt.ylim(-2.6, 2.6)
+plt.title(r"Mapa Estroboscópico ($\delta = 0.02$)", fontsize=12)
+plt.xlabel("$x$", fontsize=12)
+plt.ylabel(r"$\dot{x}$", fontsize=12)
+plt.grid(True, linestyle='--', alpha=0.5)
+plt.show()
